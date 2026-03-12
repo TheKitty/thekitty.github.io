@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CircuitPython Release Tree</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #0f1117; color: #e2e8f0; font-family: 'Segoe UI', system-ui, sans-serif; padding: 16px; }
+h1 { text-align: center; color: #a78bfa; font-size: 1.2rem; margin-bottom: 4px; }
+.sub { text-align: center; color: #64748b; font-size: .72rem; margin-bottom: 14px; }
+.legend { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-bottom: 14px; font-size: .72rem; }
+.leg { display: flex; align-items: center; gap: 5px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; }
+svg { display: block; margin: 0 auto; }
+.axis-label { font-size: 11px; fill: #475569; }
+.year-label { font-size: 11px; fill: #334155; font-weight: 600; }
+.grid { stroke: #1e2330; stroke-width: 1; }
+.branch-line { stroke-width: 2; opacity: .7; }
+.trunk { stroke: #334155; stroke-width: 3; fill: none; }
+.node { cursor: pointer; }
+.node circle { stroke-width: 1.5; }
+.node:hover circle { stroke-width: 3; filter: brightness(1.3); }
+.tag-label { font-size: 9.5px; pointer-events: none; }
+.tooltip {
+  position: fixed; background: #1e2330; border: 1px solid #334155;
+  border-radius: 8px; padding: 8px 12px; font-size: .75rem; pointer-events: none;
+  opacity: 0; transition: opacity .15s; z-index: 99; max-width: 220px;
+}
+.tip-ver { color: #a78bfa; font-weight: 700; font-family: monospace; margin-bottom: 3px; }
+.tip-date { color: #94a3b8; }
+.tip-note { color: #64748b; margin-top: 3px; font-size: .7rem; }
+</style>
+</head>
+<body>
+<h1>CircuitPython Release Tree</h1>
+<p class="sub">Every release 2017 – 2026 · hover for details · color = release type</p>
+<div class="legend">
+  <div class="leg"><div class="dot" style="background:#34d399"></div>Stable</div>
+  <div class="leg"><div class="dot" style="background:#60a5fa"></div>Beta</div>
+  <div class="leg"><div class="dot" style="background:#fb923c"></div>Alpha</div>
+  <div class="leg"><div class="dot" style="background:#facc15"></div>RC</div>
+</div>
+<div class="tooltip" id="tip"></div>
+<svg id="svg"></svg>
+
+<script>
+const RELEASES = [
+  {tag:"1.0.0-beta.0",   date:"2017-01-09",type:"beta"},
+  {tag:"1.0.0",          date:"2017-07-19",type:"stable", note:"First stable release"},
+  {tag:"1.1.0",          date:"2017-08-22",type:"stable"},
+  {tag:"1.2.0",          date:"2017-09-27",type:"stable"},
+  {tag:"1.3.0",          date:"2017-11-07",type:"stable"},
+  {tag:"2.0.0",          date:"2017-11-13",type:"stable"},
+  {tag:"2.1.0",          date:"2017-12-18",type:"stable"},
+  {tag:"2.2.0",          date:"2018-01-08",type:"stable"},
+  {tag:"2.2.1",          date:"2018-01-23",type:"stable"},
+  {tag:"2.2.3",          date:"2018-03-02",type:"stable"},
+  {tag:"2.2.4",          date:"2018-03-14",type:"stable"},
+  {tag:"3.0.0-alpha.1",  date:"2018-03-14",type:"alpha", note:"SAMD51 (M4) + nRF52 prelim"},
+  {tag:"3.0.0-alpha.2",  date:"2018-04-05",type:"alpha"},
+  {tag:"3.0.0-alpha.3",  date:"2018-04-24",type:"alpha"},
+  {tag:"3.0.0-alpha.4",  date:"2018-05-24",type:"alpha"},
+  {tag:"3.0.0-alpha.5",  date:"2018-06-26",type:"alpha"},
+  {tag:"3.0.0-beta.0",   date:"2018-07-16",type:"beta"},
+  {tag:"3.0.0-beta.1",   date:"2018-07-26",type:"beta"},
+  {tag:"3.0.0",          date:"2018-08-28",type:"stable", note:"SAMD51 (M4) stable"},
+  {tag:"3.0.1",          date:"2018-09-05",type:"stable"},
+  {tag:"3.0.2",          date:"2018-09-12",type:"stable"},
+  {tag:"3.1.0",          date:"2018-10-01",type:"stable"},
+  {tag:"3.1.1",          date:"2018-10-12",type:"stable"},
+  {tag:"3.1.2",          date:"2018-10-30",type:"stable"},
+  {tag:"4.0.0-alpha.1",  date:"2018-09-21",type:"alpha", note:"nRF52840 BLE + displayio"},
+  {tag:"4.0.0-alpha.2",  date:"2018-10-16",type:"alpha"},
+  {tag:"4.0.0-alpha.3",  date:"2018-11-15",type:"alpha"},
+  {tag:"4.0.0-alpha.4",  date:"2018-12-06",type:"alpha"},
+  {tag:"4.0.0-alpha.5",  date:"2019-01-09",type:"alpha"},
+  {tag:"4.0.0-beta.0",   date:"2019-01-23",type:"beta"},
+  {tag:"4.0.0-beta.1",   date:"2019-02-07",type:"beta"},
+  {tag:"4.0.0-beta.2",   date:"2019-02-22",type:"beta"},
+  {tag:"4.0.0-beta.3",   date:"2019-03-14",type:"beta"},
+  {tag:"4.0.0-beta.4",   date:"2019-03-27",type:"beta"},
+  {tag:"4.0.0-beta.5",   date:"2019-04-08",type:"beta"},
+  {tag:"4.0.0-beta.6",   date:"2019-04-17",type:"beta"},
+  {tag:"4.0.0-beta.7",   date:"2019-04-29",type:"beta"},
+  {tag:"4.0.0-rc.1",     date:"2019-05-06",type:"rc"},
+  {tag:"4.0.0",          date:"2019-05-22",type:"stable", note:"nRF52840 BLE stable; dropped ESP8266"},
+  {tag:"4.0.1",          date:"2019-05-28",type:"stable"},
+  {tag:"4.0.2",          date:"2019-06-12",type:"stable"},
+  {tag:"4.1.0-beta.0",   date:"2019-06-25",type:"beta"},
+  {tag:"4.1.0",          date:"2019-07-08",type:"stable"},
+  {tag:"4.1.1",          date:"2019-07-25",type:"stable"},
+  {tag:"4.1.2",          date:"2019-08-19",type:"stable"},
+  {tag:"5.0.0-alpha.0",  date:"2019-08-30",type:"alpha"},
+  {tag:"5.0.0-alpha.1",  date:"2019-09-18",type:"alpha"},
+  {tag:"5.0.0-alpha.2",  date:"2019-10-16",type:"alpha"},
+  {tag:"5.0.0-alpha.3",  date:"2019-11-14",type:"alpha"},
+  {tag:"5.0.0-alpha.4",  date:"2019-12-09",type:"alpha"},
+  {tag:"5.0.0-alpha.5",  date:"2020-01-06",type:"alpha"},
+  {tag:"5.0.0-beta.0",   date:"2020-01-21",type:"beta"},
+  {tag:"5.0.0-beta.1",   date:"2020-01-29",type:"beta"},
+  {tag:"5.0.0-beta.2",   date:"2020-02-07",type:"beta"},
+  {tag:"5.0.0-beta.3",   date:"2020-02-14",type:"beta"},
+  {tag:"5.0.0-rc.0",     date:"2020-02-28",type:"rc"},
+  {tag:"5.0.0",          date:"2020-03-04",type:"stable", note:"ESP32-S2 prelim"},
+  {tag:"5.1.0",          date:"2020-04-13",type:"stable"},
+  {tag:"5.2.0",          date:"2020-05-13",type:"stable"},
+  {tag:"5.3.0",          date:"2020-06-18",type:"stable"},
+  {tag:"5.3.1",          date:"2020-07-08",type:"stable"},
+  {tag:"6.0.0-alpha.1",  date:"2020-07-14",type:"alpha"},
+  {tag:"6.0.0-alpha.2",  date:"2020-08-04",type:"alpha"},
+  {tag:"6.0.0-alpha.3",  date:"2020-08-20",type:"alpha"},
+  {tag:"6.0.0-alpha.4",  date:"2020-09-09",type:"alpha"},
+  {tag:"6.0.0-beta.0",   date:"2020-09-24",type:"beta"},
+  {tag:"6.0.0-beta.1",   date:"2020-10-08",type:"beta"},
+  {tag:"6.0.0-beta.2",   date:"2020-10-21",type:"beta"},
+  {tag:"6.0.0-beta.3",   date:"2020-11-03",type:"beta"},
+  {tag:"6.0.0-rc.0",     date:"2020-11-12",type:"rc"},
+  {tag:"6.0.0-rc.1",     date:"2020-11-16",type:"rc"},
+  {tag:"6.0.0",          date:"2020-11-17",type:"stable", note:"RP2040 prelim; ESP32-S2 stable"},
+  {tag:"6.0.1",          date:"2020-12-16",type:"stable"},
+  {tag:"6.1.0-beta.0",   date:"2020-12-16",type:"beta"},
+  {tag:"6.1.0-beta.2",   date:"2021-01-11",type:"beta"},
+  {tag:"6.1.0",          date:"2021-01-21",type:"stable"},
+  {tag:"6.2.0-beta.0",   date:"2021-03-01",type:"beta"},
+  {tag:"6.2.0-beta.1",   date:"2021-03-12",type:"beta"},
+  {tag:"6.2.0-beta.2",   date:"2021-03-24",type:"beta"},
+  {tag:"6.2.0",          date:"2021-04-05",type:"stable", note:"RP2040 stable"},
+  {tag:"6.3.0",          date:"2021-06-01",type:"stable"},
+  {tag:"7.0.0-alpha.1",  date:"2021-05-06",type:"alpha"},
+  {tag:"7.0.0-alpha.2",  date:"2021-05-20",type:"alpha"},
+  {tag:"7.0.0-alpha.3",  date:"2021-06-07",type:"alpha"},
+  {tag:"7.0.0-alpha.4",  date:"2021-06-25",type:"alpha"},
+  {tag:"7.0.0-alpha.5",  date:"2021-07-13",type:"alpha"},
+  {tag:"7.0.0-alpha.6",  date:"2021-08-02",type:"alpha"},
+  {tag:"7.0.0-beta.0",   date:"2021-08-24",type:"beta"},
+  {tag:"7.0.0-beta.1",   date:"2021-09-09",type:"beta"},
+  {tag:"7.0.0-beta.2",   date:"2021-09-22",type:"beta"},
+  {tag:"7.0.0-beta.3",   date:"2021-10-05",type:"beta"},
+  {tag:"7.0.0-rc.1",     date:"2021-10-13",type:"rc"},
+  {tag:"7.0.0-rc.2",     date:"2021-10-18",type:"rc"},
+  {tag:"7.0.0",          date:"2021-10-26",type:"stable", note:"BLE workflow; asyncio prelim"},
+  {tag:"7.1.0-beta.0",   date:"2021-11-18",type:"beta"},
+  {tag:"7.1.0-beta.1",   date:"2021-11-30",type:"beta"},
+  {tag:"7.1.0-beta.2",   date:"2021-12-08",type:"beta"},
+  {tag:"7.1.0-beta.3",   date:"2021-12-13",type:"beta"},
+  {tag:"7.1.0",          date:"2022-01-04",type:"stable"},
+  {tag:"7.1.1",          date:"2022-01-24",type:"stable"},
+  {tag:"7.2.0-beta.0",   date:"2022-01-26",type:"beta"},
+  {tag:"7.2.0-beta.1",   date:"2022-02-09",type:"beta"},
+  {tag:"7.2.0",          date:"2022-02-28",type:"stable"},
+  {tag:"7.2.1",          date:"2022-03-16",type:"stable"},
+  {tag:"7.2.3",          date:"2022-03-29",type:"stable"},
+  {tag:"7.2.4",          date:"2022-04-06",type:"stable"},
+  {tag:"7.2.5",          date:"2022-04-26",type:"stable"},
+  {tag:"7.3.0-beta.0",   date:"2022-04-06",type:"beta"},
+  {tag:"7.3.0-beta.1",   date:"2022-04-14",type:"beta"},
+  {tag:"7.3.0-beta.2",   date:"2022-04-26",type:"beta"},
+  {tag:"7.3.0-rc.1",     date:"2022-05-16",type:"rc"},
+  {tag:"7.3.0",          date:"2022-05-23",type:"stable", note:"USB host prelim; mDNS; zlib"},
+  {tag:"7.3.1",          date:"2022-06-13",type:"stable"},
+  {tag:"7.3.2",          date:"2022-07-11",type:"stable"},
+  {tag:"7.3.3",          date:"2022-09-21",type:"stable"},
+  {tag:"8.0.0-alpha.1",  date:"2022-07-18",type:"alpha"},
+  {tag:"8.0.0-beta.0",   date:"2022-10-05",type:"beta"},
+  {tag:"8.0.0-beta.1",   date:"2022-10-26",type:"beta"},
+  {tag:"8.0.0-beta.2",   date:"2022-11-09",type:"beta"},
+  {tag:"8.0.0-beta.3",   date:"2022-11-28",type:"beta"},
+  {tag:"8.0.0-beta.4",   date:"2022-12-12",type:"beta"},
+  {tag:"8.0.0-beta.5",   date:"2022-12-22",type:"beta"},
+  {tag:"8.0.0-beta.6",   date:"2023-01-10",type:"beta"},
+  {tag:"8.0.0-rc.1",     date:"2023-01-20",type:"rc"},
+  {tag:"8.0.0-rc.2",     date:"2023-01-27",type:"rc"},
+  {tag:"8.0.0",          date:"2023-02-06",type:"stable", note:"WiFi workflow; settings.toml; synthio"},
+  {tag:"8.0.2",          date:"2023-02-14",type:"stable", note:"8.0.1 discarded"},
+  {tag:"8.0.3",          date:"2023-02-23",type:"stable"},
+  {tag:"8.0.4",          date:"2023-03-14",type:"stable"},
+  {tag:"8.0.5",          date:"2023-03-30",type:"stable"},
+  {tag:"8.1.0-beta.0",   date:"2023-04-05",type:"beta"},
+  {tag:"8.1.0-beta.1",   date:"2023-04-14",type:"beta"},
+  {tag:"8.1.0-beta.2",   date:"2023-04-26",type:"beta"},
+  {tag:"8.1.0-rc.0",     date:"2023-05-08",type:"rc"},
+  {tag:"8.1.0",          date:"2023-05-22",type:"stable", note:"SiLabs MG24; animated GIF; safemode.py"},
+  {tag:"8.2.0-beta.0",   date:"2023-06-07",type:"beta"},
+  {tag:"8.2.0-beta.1",   date:"2023-06-22",type:"beta"},
+  {tag:"8.2.0",          date:"2023-07-05",type:"stable", note:"synthio enhancements"},
+  {tag:"8.2.1",          date:"2023-07-17",type:"stable"},
+  {tag:"8.2.2",          date:"2023-08-10",type:"stable"},
+  {tag:"8.2.3",          date:"2023-09-05",type:"stable"},
+  {tag:"8.2.4",          date:"2023-09-26",type:"stable"},
+  {tag:"8.2.5",          date:"2023-10-23",type:"stable"},
+  {tag:"8.2.6",          date:"2023-11-13",type:"stable"},
+  {tag:"8.2.7",          date:"2023-12-04",type:"stable"},
+  {tag:"8.2.8",          date:"2024-01-08",type:"stable"},
+  {tag:"8.2.9",          date:"2024-01-26",type:"stable"},
+  {tag:"8.2.10",         date:"2024-03-01",type:"stable"},
+  {tag:"9.0.0-alpha.1",  date:"2023-09-07",type:"alpha"},
+  {tag:"9.0.0-alpha.2",  date:"2023-09-27",type:"alpha"},
+  {tag:"9.0.0-alpha.3",  date:"2023-10-18",type:"alpha"},
+  {tag:"9.0.0-alpha.4",  date:"2023-11-07",type:"alpha"},
+  {tag:"9.0.0-alpha.5",  date:"2023-11-29",type:"alpha"},
+  {tag:"9.0.0-alpha.6",  date:"2023-12-12",type:"alpha", note:"Split-heap; MicroPython 1.21"},
+  {tag:"9.0.0-beta.0",   date:"2024-01-18",type:"beta"},
+  {tag:"9.0.0-beta.1",   date:"2024-02-01",type:"beta"},
+  {tag:"9.0.0-rc.0",     date:"2024-02-20",type:"rc"},
+  {tag:"9.0.0-rc.1",     date:"2024-02-28",type:"rc"},
+  {tag:"9.0.0",          date:"2024-03-08",type:"stable", note:"Split heap; improved USB & graphics"},
+  {tag:"9.0.1",          date:"2024-03-19",type:"stable"},
+  {tag:"9.0.2",          date:"2024-04-01",type:"stable"},
+  {tag:"9.0.3",          date:"2024-04-15",type:"stable"},
+  {tag:"9.0.4",          date:"2024-04-29",type:"stable"},
+  {tag:"9.0.5",          date:"2024-05-22",type:"stable"},
+  {tag:"9.1.0-beta.0",   date:"2024-05-22",type:"beta"},
+  {tag:"9.1.0-beta.1",   date:"2024-06-05",type:"beta"},
+  {tag:"9.1.0-beta.2",   date:"2024-06-19",type:"beta"},
+  {tag:"9.1.0-rc.0",     date:"2024-07-08",type:"rc"},
+  {tag:"9.1.0",          date:"2024-07-17",type:"stable"},
+  {tag:"9.1.1",          date:"2024-07-22",type:"stable"},
+  {tag:"9.1.2",          date:"2024-08-06",type:"stable"},
+  {tag:"9.1.3",          date:"2024-08-21",type:"stable"},
+  {tag:"9.1.4",          date:"2024-09-09",type:"stable"},
+  {tag:"9.2.0-beta.0",   date:"2024-09-11",type:"beta"},
+  {tag:"9.2.0-beta.1",   date:"2024-09-25",type:"beta"},
+  {tag:"9.2.0-rc.0",     date:"2024-10-08",type:"rc"},
+  {tag:"9.2.0",          date:"2024-10-16",type:"stable", note:"RP2350 support"},
+  {tag:"9.2.1",          date:"2024-10-28",type:"stable"},
+  {tag:"9.2.2",          date:"2024-11-18",type:"stable"},
+  {tag:"9.2.3",          date:"2024-12-02",type:"stable"},
+  {tag:"9.2.4",          date:"2024-12-16",type:"stable"},
+  {tag:"9.2.5",          date:"2025-01-13",type:"stable"},
+  {tag:"9.2.6",          date:"2025-02-10",type:"stable"},
+  {tag:"9.2.7",          date:"2025-03-10",type:"stable"},
+  {tag:"9.2.8",          date:"2025-05-19",type:"stable"},
+  {tag:"10.0.0-alpha.1", date:"2025-01-15",type:"alpha"},
+  {tag:"10.0.0-alpha.2", date:"2025-02-05",type:"alpha"},
+  {tag:"10.0.0-alpha.3", date:"2025-02-26",type:"alpha"},
+  {tag:"10.0.0-beta.0",  date:"2025-03-19",type:"beta"},
+  {tag:"10.0.0-beta.1",  date:"2025-04-07",type:"beta"},
+  {tag:"10.0.0-rc.0",    date:"2025-04-28",type:"rc"},
+  {tag:"10.0.0",         date:"2025-05-07",type:"stable", note:"Zephyr RTOS port"},
+  {tag:"10.0.1",         date:"2025-06-02",type:"stable"},
+  {tag:"10.0.2",         date:"2025-07-14",type:"stable"},
+  {tag:"10.0.3",         date:"2025-10-17",type:"stable"},
+  {tag:"10.1.0-beta.0",  date:"2025-10-20",type:"beta"},
+  {tag:"10.1.0-beta.1",  date:"2025-11-03",type:"beta"},
+  {tag:"10.1.0-rc.1",    date:"2025-11-17",type:"rc"},
+  {tag:"10.1.0",         date:"2025-11-24",type:"stable", note:"MIPI DSI; ESP32-C61"},
+  {tag:"10.2.0-alpha.1", date:"2026-02-18",type:"alpha", note:"supervisor.get_setting()"},
+  {tag:"10.1.1",         date:"2026-02-17",type:"stable", note:"Espressif perf fix"},
+  {tag:"10.1.3",         date:"2026-02-20",type:"stable", note:"10.1.2 discarded"},
+  {tag:"10.1.4",         date:"2026-03-09",type:"stable", note:"Pin-reset & SPI deinit fixes"},
+];
+
+const TYPE_COLOR = { stable:"#34d399", beta:"#60a5fa", alpha:"#fb923c", rc:"#facc15" };
+const MAJOR_COLORS = ["#94a3b8","#e2e8f0","#c4b5fd","#93c5fd","#6ee7b7","#fde68a","#fca5a5","#f9a8d4","#a5f3fc","#86efac","#e879f9","#67e8f9"];
+
+// --- Layout constants ---
+const PAD_LEFT = 90;   // space for year labels
+const PAD_RIGHT = 20;
+const PAD_TOP = 30;
+const PAD_BOT = 30;
+const ROW_H = 18;      // px per major version lane
+const TRUNK_X = PAD_LEFT; // vertical trunk x position
+
+// Parse releases, group by major version
+const releases = RELEASES.map(r => {
+  const maj = parseInt(r.tag);
+  const ts = new Date(r.date).getTime();
+  return { ...r, major: maj, ts };
+}).sort((a, b) => a.ts - b.ts);
+
+// Time range
+const tMin = new Date("2017-01-01").getTime();
+const tMax = new Date("2026-06-01").getTime();
+const tRange = tMax - tMin;
+
+// Major versions present
+const majors = [...new Set(releases.map(r => r.major))].sort((a,b)=>a-b);
+const numMajors = majors.length;
+
+// SVG dimensions
+const W = 900;
+const laneH = 52;  // height per major version lane
+const H = PAD_TOP + numMajors * laneH + PAD_BOT + 40;
+
+// Map time → x
+function tx(ts) {
+  return PAD_LEFT + ((ts - tMin) / tRange) * (W - PAD_LEFT - PAD_RIGHT);
+}
+
+// Map major version → y (center of lane)
+function my(major) {
+  const idx = majors.indexOf(major);
+  return PAD_TOP + idx * laneH + laneH / 2;
+}
+
+const svg = document.getElementById('svg');
+svg.setAttribute('width', W);
+svg.setAttribute('height', H);
+svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+function el(tag, attrs, text) {
+  const e = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (text != null) e.textContent = text;
+  return e;
+}
+
+// Background
+svg.appendChild(el('rect', { x:0, y:0, width:W, height:H, fill:'#0f1117' }));
+
+// Year grid lines
+for (let y = 2017; y <= 2027; y++) {
+  const x = tx(new Date(`${y}-01-01`).getTime());
+  svg.appendChild(el('line', { x1:x, y1:PAD_TOP-10, x2:x, y2:H-PAD_BOT, class:'grid' }));
+  svg.appendChild(el('text', { x, y:PAD_TOP-14, 'text-anchor':'middle', class:'year-label' }, y));
+}
+
+// Major version lane backgrounds + labels
+majors.forEach((major, i) => {
+  const cy = my(major);
+  const bg = i % 2 === 0 ? '#111827' : '#0f1117';
+  svg.appendChild(el('rect', { x:0, y:cy - laneH/2, width:W, height:laneH, fill:bg, opacity:'0.6' }));
+
+  // Lane label on left
+  const col = MAJOR_COLORS[major] || '#e2e8f0';
+  svg.appendChild(el('text', {
+    x: PAD_LEFT - 8, y: cy + 4,
+    'text-anchor': 'end',
+    fill: col,
+    'font-size': '11',
+    'font-weight': '700',
+    'font-family': 'monospace'
+  }, `v${major}.x`));
+
+  // Horizontal branch line across lane
+  const majorReleases = releases.filter(r => r.major === major);
+  if (majorReleases.length > 0) {
+    const x1 = tx(majorReleases[0].ts) - 2;
+    const x2 = tx(majorReleases[majorReleases.length - 1].ts) + 2;
+    svg.appendChild(el('line', {
+      x1, y1: cy, x2, y2: cy,
+      stroke: col, 'stroke-width': '1.5', opacity: '0.35'
+    }));
+  }
+});
+
+// Trunk: vertical line on left at branching point — subtle connector
+// Draw vertical connectors between adjacent major version lanes at their first stable release
+for (let i = 0; i < majors.length - 1; i++) {
+  const mA = majors[i], mB = majors[i+1];
+  const lastA = [...releases].filter(r => r.major === mA && r.type === 'stable').pop();
+  const firstB = releases.filter(r => r.major === mB && r.type === 'alpha').shift()
+               || releases.filter(r => r.major === mB).shift();
+  if (lastA && firstB) {
+    const x1 = tx(lastA.ts), y1 = my(mA);
+    const x2 = tx(firstB.ts), y2 = my(mB);
+    const col = MAJOR_COLORS[mB] || '#334155';
+    const mid = (x1 + x2) / 2;
+    svg.appendChild(el('path', {
+      d: `M${x1},${y1} C${mid},${y1} ${mid},${y2} ${x2},${y2}`,
+      stroke: col, 'stroke-width': '1', fill: 'none', opacity: '0.25'
+    }));
+  }
+}
+
+// Nodes — group by major and subversion to avoid stacking
+// For each major, track x positions and jitter vertically if too close
+releases.forEach(r => {
+  const cx = tx(r.ts);
+  const cy = my(r.major);
+
+  // Offset by type within lane
+  const typeOffsets = { stable: 0, rc: -10, beta: -20, alpha: -20 };
+  const yOff = typeOffsets[r.type] || 0;
+  const ny = cy + yOff;
+
+  const col = TYPE_COLOR[r.type];
+  const radius = r.type === 'stable' ? 5 : 3.5;
+
+  const g = el('g', { class:'node' });
+
+  // Connector from lane center to node
+  if (yOff !== 0) {
+    g.appendChild(el('line', { x1:cx, y1:cy, x2:cx, y2:ny, stroke:col, 'stroke-width':'0.7', opacity:'0.4' }));
+  }
+
+  const circle = el('circle', { cx, cy:ny, r:radius, fill:col, stroke:'#0f1117', 'stroke-width':'1.5' });
+  g.appendChild(circle);
+
+  // Tooltip on hover
+  g.addEventListener('mouseenter', e => {
+    const tip = document.getElementById('tip');
+    tip.innerHTML = `<div class="tip-ver">${r.tag}</div><div class="tip-date">${r.date}</div>${r.note ? `<div class="tip-note">${r.note}</div>` : ''}`;
+    tip.style.opacity = '1';
+    tip.style.left = (e.clientX + 12) + 'px';
+    tip.style.top  = (e.clientY - 10) + 'px';
+  });
+  g.addEventListener('mousemove', e => {
+    const tip = document.getElementById('tip');
+    tip.style.left = (e.clientX + 12) + 'px';
+    tip.style.top  = (e.clientY - 10) + 'px';
+  });
+  g.addEventListener('mouseleave', () => {
+    document.getElementById('tip').style.opacity = '0';
+  });
+
+  svg.appendChild(g);
+});
+
+// Add a time axis line at bottom
+const axisY = H - PAD_BOT + 10;
+svg.appendChild(el('line', { x1:PAD_LEFT, y1:axisY, x2:W-PAD_RIGHT, y2:axisY, stroke:'#1e2330', 'stroke-width':'1' }));
+</script>
+</body>
+</html>

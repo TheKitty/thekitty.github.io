@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CircuitPython Releases</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f1117;color:#e2e8f0;padding:20px;min-height:100vh}
+h1{text-align:center;font-size:1.35rem;color:#a78bfa;margin-bottom:4px}
+.sub{text-align:center;font-size:.72rem;color:#64748b;margin-bottom:16px}
+.filters{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:12px}
+button{padding:4px 14px;border-radius:20px;border:1.5px solid;font-size:.73rem;cursor:pointer;background:transparent;font-weight:700;transition:all .15s}
+button:hover{opacity:.75}
+#ball{border-color:#a78bfa;color:#a78bfa} #ball.on{background:#a78bfa;color:#0f1117}
+#bst {border-color:#34d399;color:#34d399} #bst.on {background:#34d399;color:#0f1117}
+#bbe {border-color:#60a5fa;color:#60a5fa} #bbe.on {background:#60a5fa;color:#0f1117}
+#bal {border-color:#fb923c;color:#fb923c} #bal.on {background:#fb923c;color:#0f1117}
+#brc {border-color:#facc15;color:#facc15} #brc.on {background:#facc15;color:#0f1117}
+.search-wrap{text-align:center;margin-bottom:14px}
+input{padding:5px 13px;background:#1e2330;border:1px solid #334155;border-radius:8px;color:#e2e8f0;font-size:.8rem;width:230px}
+input:focus{outline:none;border-color:#a78bfa}
+table{width:100%;border-collapse:collapse;font-size:.79rem}
+th{background:#1a1d2e;color:#94a3b8;font-weight:600;text-align:left;padding:8px 11px;position:sticky;top:0;z-index:2;border-bottom:2px solid #334155;cursor:pointer;white-space:nowrap;user-select:none}
+th:hover{color:#a78bfa}
+td{padding:6px 11px;vertical-align:middle}
+tr:nth-child(even){background:#0d1020}
+tr:hover td{background:#1a1d2e}
+.badge{display:inline-block;padding:2px 9px;border-radius:12px;font-size:.68rem;font-weight:700}
+.stable{background:#064e3b;color:#34d399}
+.beta  {background:#1e3a5f;color:#60a5fa}
+.alpha {background:#431407;color:#fb923c}
+.rc    {background:#422006;color:#facc15}
+.ver a{font-family:'Cascadia Code','Fira Code',monospace;font-weight:600;text-decoration:none;white-space:nowrap}
+.num{color:#4b5563}
+.date{color:#94a3b8;white-space:nowrap}
+.note{color:#64748b;font-size:.73rem;max-width:280px}
+.foot{text-align:center;color:#4b5563;font-size:.72rem;margin-top:10px}
+.disc{text-align:center;color:#334155;font-size:.68rem;margin-top:6px}
+</style>
+</head>
+<body>
+<h1>CircuitPython Release History</h1>
+<p class="sub" id="sub"></p>
+
+<div class="filters">
+  <button id="ball" class="on" onclick="setType('all')">All</button>
+  <button id="bst"  onclick="setType('stable')">Stable</button>
+  <button id="bbe"  onclick="setType('beta')">Beta</button>
+  <button id="bal"  onclick="setType('alpha')">Alpha</button>
+  <button id="brc"  onclick="setType('rc')">RC</button>
+</div>
+<div class="search-wrap">
+  <input id="q" type="text" placeholder="Filter by version…" oninput="render()">
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th onclick="doSort('n')"    id="hN"   >#</th>
+      <th onclick="doSort('tag')"  id="hTag" >Version</th>
+      <th onclick="doSort('date')" id="hDate">Date</th>
+      <th onclick="doSort('type')" id="hType">Type</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody id="tbody"></tbody>
+</table>
+<p class="foot" id="foot"></p>
+<p class="disc">Some early dates are approximate. 8.0.1, 10.1.0, 10.1.2, and several rc.0 tags were discarded per release notes.</p>
+
+<script>
+const MC=["#94a3b8","#e2e8f0","#c4b5fd","#93c5fd","#6ee7b7","#fde68a","#fca5a5","#f9a8d4","#a5f3fc","#86efac","#e879f9","#67e8f9"];
+const RAW=[
+  // 1.x
+  {tag:"1.0.0-beta.0",   date:"2017-01-09",type:"beta",   note:"First public CircuitPython beta; SAMD21 + ESP8266"},
+  {tag:"1.0.0",          date:"2017-07-19",type:"stable", note:"First stable release"},
+  {tag:"1.1.0",          date:"2017-08-22",type:"stable"},
+  {tag:"1.2.0",          date:"2017-09-27",type:"stable"},
+  {tag:"1.3.0",          date:"2017-11-07",type:"stable"},
+  // 2.x
+  {tag:"2.0.0",          date:"2017-11-13",type:"stable"},
+  {tag:"2.1.0",          date:"2017-12-18",type:"stable"},
+  {tag:"2.2.0",          date:"2018-01-08",type:"stable"},
+  {tag:"2.2.1",          date:"2018-01-23",type:"stable"},
+  {tag:"2.2.3",          date:"2018-03-02",type:"stable"},
+  {tag:"2.2.4",          date:"2018-03-14",type:"stable"},
+  // 3.x
+  {tag:"3.0.0-alpha.1",  date:"2018-03-14",type:"alpha",  note:"SAMD51 (M4) + nRF52 prelim"},
+  {tag:"3.0.0-alpha.2",  date:"2018-04-05",type:"alpha"},
+  {tag:"3.0.0-alpha.3",  date:"2018-04-24",type:"alpha"},
+  {tag:"3.0.0-alpha.4",  date:"2018-05-24",type:"alpha"},
+  {tag:"3.0.0-alpha.5",  date:"2018-06-26",type:"alpha"},
+  {tag:"3.0.0-beta.0",   date:"2018-07-16",type:"beta"},
+  {tag:"3.0.0-beta.1",   date:"2018-07-26",type:"beta"},
+  {tag:"3.0.0",          date:"2018-08-28",type:"stable", note:"SAMD51 (M4) stable"},
+  {tag:"3.0.1",          date:"2018-09-05",type:"stable"},
+  {tag:"3.0.2",          date:"2018-09-12",type:"stable"},
+  {tag:"3.1.0",          date:"2018-10-01",type:"stable"},
+  {tag:"3.1.1",          date:"2018-10-12",type:"stable"},
+  {tag:"3.1.2",          date:"2018-10-30",type:"stable"},
+  // 4.x
+  {tag:"4.0.0-alpha.1",  date:"2018-09-21",type:"alpha",  note:"nRF52840 BLE + displayio"},
+  {tag:"4.0.0-alpha.2",  date:"2018-10-16",type:"alpha"},
+  {tag:"4.0.0-alpha.3",  date:"2018-11-15",type:"alpha"},
+  {tag:"4.0.0-alpha.4",  date:"2018-12-06",type:"alpha"},
+  {tag:"4.0.0-alpha.5",  date:"2019-01-09",type:"alpha"},
+  {tag:"4.0.0-beta.0",   date:"2019-01-23",type:"beta"},
+  {tag:"4.0.0-beta.1",   date:"2019-02-07",type:"beta"},
+  {tag:"4.0.0-beta.2",   date:"2019-02-22",type:"beta"},
+  {tag:"4.0.0-beta.3",   date:"2019-03-14",type:"beta"},
+  {tag:"4.0.0-beta.4",   date:"2019-03-27",type:"beta"},
+  {tag:"4.0.0-beta.5",   date:"2019-04-08",type:"beta"},
+  {tag:"4.0.0-beta.6",   date:"2019-04-17",type:"beta"},
+  {tag:"4.0.0-beta.7",   date:"2019-04-29",type:"beta"},
+  {tag:"4.0.0-rc.1",     date:"2019-05-06",type:"rc"},
+  {tag:"4.0.0",          date:"2019-05-22",type:"stable", note:"nRF52840 BLE stable; dropped ESP8266"},
+  {tag:"4.0.1",          date:"2019-05-28",type:"stable"},
+  {tag:"4.0.2",          date:"2019-06-12",type:"stable"},
+  {tag:"4.1.0-beta.0",   date:"2019-06-25",type:"beta"},
+  {tag:"4.1.0",          date:"2019-07-08",type:"stable"},
+  {tag:"4.1.1",          date:"2019-07-25",type:"stable"},
+  {tag:"4.1.2",          date:"2019-08-19",type:"stable"},
+  // 5.x
+  {tag:"5.0.0-alpha.0",  date:"2019-08-30",type:"alpha"},
+  {tag:"5.0.0-alpha.1",  date:"2019-09-18",type:"alpha"},
+  {tag:"5.0.0-alpha.2",  date:"2019-10-16",type:"alpha"},
+  {tag:"5.0.0-alpha.3",  date:"2019-11-14",type:"alpha"},
+  {tag:"5.0.0-alpha.4",  date:"2019-12-09",type:"alpha"},
+  {tag:"5.0.0-alpha.5",  date:"2020-01-06",type:"alpha"},
+  {tag:"5.0.0-beta.0",   date:"2020-01-21",type:"beta"},
+  {tag:"5.0.0-beta.1",   date:"2020-01-29",type:"beta"},
+  {tag:"5.0.0-beta.2",   date:"2020-02-07",type:"beta"},
+  {tag:"5.0.0-beta.3",   date:"2020-02-14",type:"beta"},
+  {tag:"5.0.0-rc.0",     date:"2020-02-28",type:"rc"},
+  {tag:"5.0.0",          date:"2020-03-04",type:"stable", note:"ESP32-S2 prelim; PulseIO rework"},
+  {tag:"5.1.0",          date:"2020-04-13",type:"stable"},
+  {tag:"5.2.0",          date:"2020-05-13",type:"stable"},
+  {tag:"5.3.0",          date:"2020-06-18",type:"stable"},
+  {tag:"5.3.1",          date:"2020-07-08",type:"stable"},
+  // 6.x
+  {tag:"6.0.0-alpha.1",  date:"2020-07-14",type:"alpha"},
+  {tag:"6.0.0-alpha.2",  date:"2020-08-04",type:"alpha"},
+  {tag:"6.0.0-alpha.3",  date:"2020-08-20",type:"alpha"},
+  {tag:"6.0.0-alpha.4",  date:"2020-09-09",type:"alpha"},
+  {tag:"6.0.0-beta.0",   date:"2020-09-24",type:"beta"},
+  {tag:"6.0.0-beta.1",   date:"2020-10-08",type:"beta"},
+  {tag:"6.0.0-beta.2",   date:"2020-10-21",type:"beta"},
+  {tag:"6.0.0-beta.3",   date:"2020-11-03",type:"beta"},
+  {tag:"6.0.0-rc.0",     date:"2020-11-12",type:"rc"},
+  {tag:"6.0.0-rc.1",     date:"2020-11-16",type:"rc"},
+  {tag:"6.0.0",          date:"2020-11-17",type:"stable", note:"RP2040 prelim; ESP32-S2 stable"},
+  {tag:"6.0.1",          date:"2020-12-16",type:"stable"},
+  {tag:"6.1.0-beta.0",   date:"2020-12-16",type:"beta"},
+  {tag:"6.1.0-beta.2",   date:"2021-01-11",type:"beta"},
+  {tag:"6.1.0",          date:"2021-01-21",type:"stable"},
+  {tag:"6.2.0-beta.0",   date:"2021-03-01",type:"beta"},
+  {tag:"6.2.0-beta.1",   date:"2021-03-12",type:"beta"},
+  {tag:"6.2.0-beta.2",   date:"2021-03-24",type:"beta"},
+  {tag:"6.2.0",          date:"2021-04-05",type:"stable", note:"RP2040 stable"},
+  {tag:"6.3.0",          date:"2021-06-01",type:"stable"},
+  // 7.x
+  {tag:"7.0.0-alpha.1",  date:"2021-05-06",type:"alpha"},
+  {tag:"7.0.0-alpha.2",  date:"2021-05-20",type:"alpha"},
+  {tag:"7.0.0-alpha.3",  date:"2021-06-07",type:"alpha"},
+  {tag:"7.0.0-alpha.4",  date:"2021-06-25",type:"alpha"},
+  {tag:"7.0.0-alpha.5",  date:"2021-07-13",type:"alpha"},
+  {tag:"7.0.0-alpha.6",  date:"2021-08-02",type:"alpha"},
+  {tag:"7.0.0-beta.0",   date:"2021-08-24",type:"beta"},
+  {tag:"7.0.0-beta.1",   date:"2021-09-09",type:"beta"},
+  {tag:"7.0.0-beta.2",   date:"2021-09-22",type:"beta"},
+  {tag:"7.0.0-beta.3",   date:"2021-10-05",type:"beta"},
+  {tag:"7.0.0-rc.1",     date:"2021-10-13",type:"rc"},
+  {tag:"7.0.0-rc.2",     date:"2021-10-18",type:"rc"},
+  {tag:"7.0.0",          date:"2021-10-26",type:"stable", note:"BLE workflow; asyncio prelim"},
+  {tag:"7.1.0-beta.0",   date:"2021-11-18",type:"beta"},
+  {tag:"7.1.0-beta.1",   date:"2021-11-30",type:"beta"},
+  {tag:"7.1.0-beta.2",   date:"2021-12-08",type:"beta"},
+  {tag:"7.1.0-beta.3",   date:"2021-12-13",type:"beta"},
+  {tag:"7.1.0",          date:"2022-01-04",type:"stable"},
+  {tag:"7.1.1",          date:"2022-01-24",type:"stable"},
+  {tag:"7.2.0-beta.0",   date:"2022-01-26",type:"beta"},
+  {tag:"7.2.0-beta.1",   date:"2022-02-09",type:"beta"},
+  {tag:"7.2.0",          date:"2022-02-28",type:"stable"},
+  {tag:"7.2.1",          date:"2022-03-16",type:"stable"},
+  {tag:"7.2.3",          date:"2022-03-29",type:"stable"},
+  {tag:"7.2.4",          date:"2022-04-06",type:"stable"},
+  {tag:"7.2.5",          date:"2022-04-26",type:"stable"},
+  {tag:"7.3.0-beta.0",   date:"2022-04-06",type:"beta"},
+  {tag:"7.3.0-beta.1",   date:"2022-04-14",type:"beta"},
+  {tag:"7.3.0-beta.2",   date:"2022-04-26",type:"beta"},
+  {tag:"7.3.0-rc.1",     date:"2022-05-16",type:"rc"},
+  {tag:"7.3.0",          date:"2022-05-23",type:"stable", note:"USB host prelim; mDNS; zlib"},
+  {tag:"7.3.1",          date:"2022-06-13",type:"stable"},
+  {tag:"7.3.2",          date:"2022-07-11",type:"stable"},
+  {tag:"7.3.3",          date:"2022-09-21",type:"stable"},
+  // 8.x
+  {tag:"8.0.0-alpha.1",  date:"2022-07-18",type:"alpha"},
+  {tag:"8.0.0-beta.0",   date:"2022-10-05",type:"beta"},
+  {tag:"8.0.0-beta.1",   date:"2022-10-26",type:"beta"},
+  {tag:"8.0.0-beta.2",   date:"2022-11-09",type:"beta"},
+  {tag:"8.0.0-beta.3",   date:"2022-11-28",type:"beta"},
+  {tag:"8.0.0-beta.4",   date:"2022-12-12",type:"beta"},
+  {tag:"8.0.0-beta.5",   date:"2022-12-22",type:"beta"},
+  {tag:"8.0.0-beta.6",   date:"2023-01-10",type:"beta"},
+  {tag:"8.0.0-rc.1",     date:"2023-01-20",type:"rc"},
+  {tag:"8.0.0-rc.2",     date:"2023-01-27",type:"rc"},
+  {tag:"8.0.0",          date:"2023-02-06",type:"stable", note:"WiFi workflow; settings.toml; synthio"},
+  {tag:"8.0.2",          date:"2023-02-14",type:"stable", note:"8.0.1 discarded (wrong branch)"},
+  {tag:"8.0.3",          date:"2023-02-23",type:"stable"},
+  {tag:"8.0.4",          date:"2023-03-14",type:"stable"},
+  {tag:"8.0.5",          date:"2023-03-30",type:"stable"},
+  {tag:"8.1.0-beta.0",   date:"2023-04-05",type:"beta"},
+  {tag:"8.1.0-beta.1",   date:"2023-04-14",type:"beta"},
+  {tag:"8.1.0-beta.2",   date:"2023-04-26",type:"beta"},
+  {tag:"8.1.0-rc.0",     date:"2023-05-08",type:"rc"},
+  {tag:"8.1.0",          date:"2023-05-22",type:"stable", note:"SiLabs MG24; animated GIF; safemode.py"},
+  {tag:"8.2.0-beta.0",   date:"2023-06-07",type:"beta"},
+  {tag:"8.2.0-beta.1",   date:"2023-06-22",type:"beta"},
+  {tag:"8.2.0",          date:"2023-07-05",type:"stable", note:"synthio enhancements; RP2040 alarm.sleep_memory"},
+  {tag:"8.2.1",          date:"2023-07-17",type:"stable"},
+  {tag:"8.2.2",          date:"2023-08-10",type:"stable"},
+  {tag:"8.2.3",          date:"2023-09-05",type:"stable"},
+  {tag:"8.2.4",          date:"2023-09-26",type:"stable"},
+  {tag:"8.2.5",          date:"2023-10-23",type:"stable"},
+  {tag:"8.2.6",          date:"2023-11-13",type:"stable"},
+  {tag:"8.2.7",          date:"2023-12-04",type:"stable"},
+  {tag:"8.2.8",          date:"2024-01-08",type:"stable"},
+  {tag:"8.2.9",          date:"2024-01-26",type:"stable"},
+  {tag:"8.2.10",         date:"2024-03-01",type:"stable"},
+  // 9.x
+  {tag:"9.0.0-alpha.1",  date:"2023-09-07",type:"alpha"},
+  {tag:"9.0.0-alpha.2",  date:"2023-09-27",type:"alpha"},
+  {tag:"9.0.0-alpha.3",  date:"2023-10-18",type:"alpha"},
+  {tag:"9.0.0-alpha.4",  date:"2023-11-07",type:"alpha"},
+  {tag:"9.0.0-alpha.5",  date:"2023-11-29",type:"alpha"},
+  {tag:"9.0.0-alpha.6",  date:"2023-12-12",type:"alpha", note:"Split-heap; MicroPython 1.21 merge"},
+  {tag:"9.0.0-beta.0",   date:"2024-01-18",type:"beta"},
+  {tag:"9.0.0-beta.1",   date:"2024-02-01",type:"beta"},
+  {tag:"9.0.0-rc.0",     date:"2024-02-20",type:"rc"},
+  {tag:"9.0.0-rc.1",     date:"2024-02-28",type:"rc"},
+  {tag:"9.0.0",          date:"2024-03-08",type:"stable", note:"Split heap; improved USB & graphics"},
+  {tag:"9.0.1",          date:"2024-03-19",type:"stable"},
+  {tag:"9.0.2",          date:"2024-04-01",type:"stable"},
+  {tag:"9.0.3",          date:"2024-04-15",type:"stable"},
+  {tag:"9.0.4",          date:"2024-04-29",type:"stable"},
+  {tag:"9.0.5",          date:"2024-05-22",type:"stable"},
+  {tag:"9.1.0-beta.0",   date:"2024-05-22",type:"beta"},
+  {tag:"9.1.0-beta.1",   date:"2024-06-05",type:"beta"},
+  {tag:"9.1.0-beta.2",   date:"2024-06-19",type:"beta"},
+  {tag:"9.1.0-rc.0",     date:"2024-07-08",type:"rc"},
+  {tag:"9.1.0",          date:"2024-07-17",type:"stable"},
+  {tag:"9.1.1",          date:"2024-07-22",type:"stable"},
+  {tag:"9.1.2",          date:"2024-08-06",type:"stable"},
+  {tag:"9.1.3",          date:"2024-08-21",type:"stable"},
+  {tag:"9.1.4",          date:"2024-09-09",type:"stable"},
+  {tag:"9.2.0-beta.0",   date:"2024-09-11",type:"beta"},
+  {tag:"9.2.0-beta.1",   date:"2024-09-25",type:"beta"},
+  {tag:"9.2.0-rc.0",     date:"2024-10-08",type:"rc"},
+  {tag:"9.2.0",          date:"2024-10-16",type:"stable", note:"RP2350 support"},
+  {tag:"9.2.1",          date:"2024-10-28",type:"stable"},
+  {tag:"9.2.2",          date:"2024-11-18",type:"stable"},
+  {tag:"9.2.3",          date:"2024-12-02",type:"stable"},
+  {tag:"9.2.4",          date:"2024-12-16",type:"stable"},
+  {tag:"9.2.5",          date:"2025-01-13",type:"stable"},
+  {tag:"9.2.6",          date:"2025-02-10",type:"stable"},
+  {tag:"9.2.7",          date:"2025-03-10",type:"stable"},
+  {tag:"9.2.8",          date:"2025-05-19",type:"stable"},
+  // 10.x
+  {tag:"10.0.0-alpha.1", date:"2025-01-15",type:"alpha"},
+  {tag:"10.0.0-alpha.2", date:"2025-02-05",type:"alpha"},
+  {tag:"10.0.0-alpha.3", date:"2025-02-26",type:"alpha"},
+  {tag:"10.0.0-beta.0",  date:"2025-03-19",type:"beta"},
+  {tag:"10.0.0-beta.1",  date:"2025-04-07",type:"beta"},
+  {tag:"10.0.0-rc.0",    date:"2025-04-28",type:"rc"},
+  {tag:"10.0.0",         date:"2025-05-07",type:"stable", note:"Major version; Zephyr RTOS port"},
+  {tag:"10.0.1",         date:"2025-06-02",type:"stable"},
+  {tag:"10.0.2",         date:"2025-07-14",type:"stable"},
+  {tag:"10.0.3",         date:"2025-10-17",type:"stable"},
+  {tag:"10.1.0-beta.0",  date:"2025-10-20",type:"beta"},
+  {tag:"10.1.0-beta.1",  date:"2025-11-03",type:"beta"},
+  {tag:"10.1.0-rc.1",    date:"2025-11-17",type:"rc",     note:"rc.0 discarded (build issues)"},
+  {tag:"10.1.0",         date:"2025-11-24",type:"stable", note:"MIPI DSI; ESP32-C61 (withdrawn/rereleased as 10.1.1)"},
+  {tag:"10.1.1",         date:"2026-02-17",type:"stable", note:"Espressif perf regression fix"},
+  {tag:"10.1.3",         date:"2026-02-20",type:"stable", note:"10.1.2 discarded (tagging error)"},
+  {tag:"10.2.0-alpha.1", date:"2026-02-18",type:"alpha",  note:"supervisor.get_setting(); os.getenv()→str"},
+  {tag:"10.1.4",         date:"2026-03-09",type:"stable", note:"Pin-reset & SPI deinit fixes"},
+];
+
+// Sort by date, assign sequence numbers
+const DATA = RAW.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0).map((r,i)=>({...r,n:i+1}));
+
+let typeFilter='all', sortCol='n', sortDir=1;
+
+function setType(t){
+  typeFilter=t;
+  ['all','stable','beta','alpha','rc'].forEach(x=>{
+    document.getElementById('b'+x.slice(0,2)).classList.toggle('on', x===t);
+  });
+  // fix 'all' button id
+  document.getElementById('ball').classList.toggle('on', t==='all');
+  render();
+}
+
+function doSort(col){
+  if(sortCol===col) sortDir*=-1; else{sortCol=col;sortDir=1;}
+  ['n','tag','date','type'].forEach(c=>{
+    const h=document.getElementById('h'+c.charAt(0).toUpperCase()+c.slice(1));
+    if(h) h.textContent = {n:'#',tag:'Version',date:'Date',type:'Type'}[c] +
+      (sortCol===c ? (sortDir===1?' ↑':' ↓') : '');
+  });
+  render();
+}
+
+function render(){
+  const q=(document.getElementById('q').value||'').toLowerCase();
+  let rows=DATA.filter(r=>{
+    if(typeFilter!=='all' && r.type!==typeFilter) return false;
+    if(q && !r.tag.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  rows=[...rows].sort((a,b)=>{
+    const av=a[sortCol]??'', bv=b[sortCol]??'';
+    return av<bv?-sortDir:av>bv?sortDir:0;
+  });
+
+  const tb=document.getElementById('tbody');
+  tb.innerHTML=rows.map((r,i)=>{
+    const major=parseInt(r.tag)||0;
+    const col=MC[major]||'#e2e8f0';
+    const bg=i%2===0?'transparent':'#0d1020';
+    return `<tr style="background:${bg}">
+      <td class="num">${r.n}</td>
+      <td class="ver"><a href="https://github.com/adafruit/circuitpython/releases/tag/${r.tag}"
+        target="_blank" style="color:${col}">${r.tag}</a></td>
+      <td class="date">${r.date}</td>
+      <td><span class="badge ${r.type}">${r.type}</span></td>
+      <td class="note">${r.note||''}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('foot').textContent=
+    `${rows.length} of ${DATA.length} releases shown`;
+}
+
+document.getElementById('sub').textContent=
+  `${DATA.length} releases · earliest → latest · Sources: GitHub, Adafruit blog`;
+
+render();
+</script>
+</body>
+</html>
