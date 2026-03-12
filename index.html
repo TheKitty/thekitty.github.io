@@ -1,3 +1,118 @@
-## Readme
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CircuitPython Releases</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #0f1117;
+  color: #e2e8f0;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.card {
+  background: #1a1d2e;
+  border: 1px solid #334155;
+  border-radius: 16px;
+  padding: 40px 48px;
+  max-width: 480px;
+  width: 100%;
+  text-align: center;
+}
+.blinka {
+  font-size: 3rem;
+  margin-bottom: 12px;
+}
+h1 {
+  color: #a78bfa;
+  font-size: 1.4rem;
+  margin-bottom: 6px;
+}
+.sub {
+  color: #64748b;
+  font-size: 0.8rem;
+  margin-bottom: 32px;
+}
+.links {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+a.btn {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #0f1117;
+  border: 1.5px solid #334155;
+  border-radius: 10px;
+  padding: 16px 20px;
+  text-decoration: none;
+  color: #e2e8f0;
+  transition: border-color 0.2s, background 0.2s;
+  text-align: left;
+}
+a.btn:hover {
+  background: #1e2330;
+  border-color: #a78bfa;
+}
+.icon {
+  font-size: 1.6rem;
+  flex-shrink: 0;
+}
+.btn-text .title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #e2e8f0;
+  margin-bottom: 2px;
+}
+.btn-text .desc {
+  font-size: 0.74rem;
+  color: #64748b;
+}
+.btn-text .file {
+  font-size: 0.68rem;
+  color: #475569;
+  font-family: monospace;
+  margin-top: 3px;
+}
+footer {
+  margin-top: 28px;
+  font-size: 0.68rem;
+  color: #334155;
+}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="blinka">🐍</div>
+  <h1>CircuitPython Releases</h1>
+  <p class="sub">Reference tools for every CircuitPython release, 2017 – 2026</p>
 
-These are files I want on the web quickly
+  <div class="links">
+    <a class="btn" href="CP_releases.html">
+      <span class="icon">📋</span>
+      <div class="btn-text">
+        <div class="title">Release Table</div>
+        <div class="desc">Sortable, filterable table of all releases with dates and notes</div>
+        <div class="file">CP_releases.html</div>
+      </div>
+    </a>
+    <a class="btn" href="CP_release_chart.html">
+      <span class="icon">🌿</span>
+      <div class="btn-text">
+        <div class="title">Release Tree Chart</div>
+        <div class="desc">Timeline tree showing stable, beta, alpha, and RC releases by major version</div>
+        <div class="file">CP_release_chart.html</div>
+      </div>
+    </a>
+  </div>
+
+  <footer>Sources: GitHub · Adafruit Blog · Wikipedia</footer>
+</div>
+</body>
+</html>
